@@ -1,0 +1,37 @@
+bundle:
+  name: lakeflow_cdc_demo
+
+# The workspace host is read from the DATABRICKS_HOST environment variable (see .env.example).
+
+resources:
+  pipelines:
+    customers_pipeline:
+      name: customers_cdc_pipeline
+      catalog: dbw_lakeflow_cdc
+      schema: cdc_demo
+      serverless: true
+      libraries:
+        - file:
+            path: src/pipeline/01_bronze.sql
+        - file:
+            path: src/pipeline/02_silver.sql
+        - file:
+            path: src/pipeline/03_gold.sql
+
+  jobs:
+    customers_cdc_job:
+      name: customers_cdc_job
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "3"
+      tasks:
+        - task_key: extract
+          environment_key: default
+          spark_python_task:
+            python_file: src/extract_cdc.py
+        - task_key: refresh_pipeline
+          depends_on:
+            - task_key: extract
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.customers_pipeline.id}
